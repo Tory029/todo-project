@@ -1,43 +1,42 @@
+
 from datetime import datetime
-from sqlalchemy import String, DateTime, select
+from sqlalchemy import String, TIMESTAMP, select
 from sqlalchemy.ext.asyncio import (create_async_engine, async_sessionmaker, 
                                     AsyncSession) 
-from sqlalchemy.orm import (DeclarativeBase, Mapped, mapped_column)
+from sqlalchemy.orm import (declarative_base, Mapped, mapped_column)
 
 
 DATABASE_URL = 'postgresql+asyncpg://localhost:5432/postgres'
 #async engine to work with database
-engine = create_async_engine(url=DATABASE_URL)
-
+engine = create_async_engine(url=DATABASE_URL, echo=True)
+Base = declarative_base()
 # fabric of session to communicate with database
 async_session_maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
 
 # Todo table
-class Todo(DeclarativeBase):
+class Todo(Base):
     __tablename__ = 'Todos',
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    title: Mapped[str] = mapped_column(String(40))
+    title: Mapped[str] = mapped_column(String(40), nullable=False)
     content: Mapped[str]
-    created_at: Mapped[datetime] = mapped_column(DateTime)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=False), nullable=False)
+    closed_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=False), nullable=False)
+
+#create the database
+Base.metadata.create_all(engine)
 
 
-def connecion(method):
-    async def wrapper(*args, **kwargs):
-        async with async_session_maker() as session: # auto open and close
-                                                     # session in async
-            try:
-                return await method(*args, session, **kwargs)
-            except Exception as E:
-                await session.rollback() #open session while errore
-                raise E # return Exception
-            finally:
-                await session.close() # close session
+async def init_models():
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.drop_all)
+        await connection.run_sync(Base.metadata.create_all)
+
+# session create
+async def get_session() -> AsyncSession:
+    async with async_session_maker() as session:
+        yield session
 
 
-    return wrapper
 
-@connecion
-async def get_todos(session):
-    return await session.execut(select(Todo))

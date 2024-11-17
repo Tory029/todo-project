@@ -1,18 +1,22 @@
 import uvicorn
+import typer
+import asyncio
 
 from fastapi import FastAPI
 from todo_router import router
+#from db import init_models
 
 
-app = FastAPI(title='Home')
+app = FastAPI()
+app.include_router(router)
+        
+#cli = typer.Typer()
 
+#@cli.command()
+#def db_init_models():
+#    asyncio.run(init_models())
+ #   print("Done")
 
-@app.get("/", status_code=200)
-async def home():
-    return {"its": "home page"}
-
-
-app.include_router(router=router)
 
 if __name__ == '__main__':
     uvicorn.run(
@@ -21,3 +25,4 @@ if __name__ == '__main__':
         host='localhost',
         port=5432,
         )
+    #cli()
